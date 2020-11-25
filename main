@@ -1,0 +1,92 @@
+# -*- coding: utf-8 -*-
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time,requests,json
+
+import smtplib
+from email.mime.text import MIMEText
+from email.header import Header
+from selenium.webdriver.common.keys import Keys
+
+def sign(sessionid,mail_address):
+    mobileEmulation = {'deviceName': 'Galaxy S5'}
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_experimental_option('mobileEmulation', mobileEmulation)
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+
+    browser = webdriver.Chrome(chrome_options=chrome_options)
+    browser.get("http://health.xiamin.tech/")
+
+    browser.add_cookie({'name':'sessionid','value':sessionid})
+    browser.refresh()
+
+    try:
+        regist_button = WebDriverWait(browser,20).until(EC.presence_of_element_located((By.ID,'regist_button')))
+        browser.execute_script("window.scrollTo(0,2500);")
+        # print(regist_button)
+        if regist_button.is_enabled():
+            print('ok')
+            regist_button.click()
+            confirm = WebDriverWait(browser,20).until(EC.presence_of_element_located((By.CSS_SELECTOR,'.van-dialog__confirm')))
+            confirm.click()
+            regist_button = WebDriverWait(browser,20).until(EC.presence_of_element_located((By.ID,'regist_button')))
+            if regist_button.is_enabled():
+                print('no_sign')
+                sendMail('签到失败！',mail_address)
+            else:
+                sendMail(regist_button.text,mail_address)
+        else:
+            print('no')
+            # sendMail('已签到！',mail_address)
+    except Exception as e:
+        print(e)
+    finally:
+        print('='*50)
+        time.sleep(3)
+        browser.quit()
+
+def sendMail(params,mail_address):
+    print(params)
+    #每日诗句
+    # payload = "type=all"
+    # headers = {'Content-Type': "application/x-www-form-urlencoded"}
+    # response = requests.request('POST', 'https://v1.alapi.cn/api/shici', data=payload, headers=headers)
+    # shici = json.loads(response.text)
+    # content = shici.get('data').get('content')
+    # origin = shici.get('data').get('origin')
+    # author = shici.get('data').get('author')
+    #邮件发送
+    mail_host="smtp.qq.com"
+    mail_user="" #邮箱用户名
+    mail_pass="" #邮箱密码
+
+    sender = '' #发送者
+    receivers = mail_address
+
+    # mail_msg ='<p>状态：%s</p> <hr>每日诗词：%s<br>自：%s，作者：%s'%(params,content, origin, author)   
+    mail_msg ='<p>状态：%s</p>'%(params) 
+    print(mail_msg)
+    print(mail_address)
+    message = MIMEText(mail_msg, 'html', 'utf-8')
+    message['From'] = Header("ycitHealthAuto", 'utf-8')
+    message['To'] =  Header(mail_address, 'utf-8')
+
+    subject = '盐城工学院健康信息报送系统'
+    message['Subject'] = Header(subject, 'utf-8')
+        
+    try:
+        smtpObj = smtplib.SMTP() 
+        smtpObj.connect(mail_host, 587)
+        smtpObj.login(mail_user,mail_pass)  
+        smtpObj.sendmail(sender, receivers, message.as_string())
+        print('邮件发送成功')
+    except smtplib.SMTPException:
+        print('Error: 无法发送邮件')
+     
+if __name__ == "__main__":
+    sign('session_id','收件者邮箱')
